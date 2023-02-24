@@ -1,13 +1,21 @@
-# Sample Hardhat Project
+# Catalysts ERC1155 POC
 
-This project demonstrates a basic Hardhat use case. It comes with a sample contract, a test for that contract, and a script that deploys that contract.
+This project demonstates ERC1155 implementation for the Catalyst contract with meta transaction support.
 
-Try running some of the following tasks:
+To get things going please see below commands:
 
-```shell
-npx hardhat help
-npx hardhat test
-REPORT_GAS=true npx hardhat test
-npx hardhat node
-npx hardhat run scripts/deploy.ts
 ```
+npm install - to install all dependencjes
+npx hardhat deploy - deploy to local hardhat instance
+npm run deploy - runs the deployment on a goerli network
+npm run verify - verifies all contracts on goerli network
+```
+
+In order to deploy contracts you need to create `.env` file according to `.env.example` and fill out the deployer PK.
+If you'd like to verify contracts please paste the etherscan API key as well.
+
+The deploy function deploys the following contracts:
+
+`ProxyAdmin` - manager of the TransparentUpgradeableProxy that handles upgrading, single admin then can be used for multiple proxies
+`Catalyst_Implementation` - the implementation of the Catalyst contract
+`Catalyst_Proxy` - transparent upgradeable proxy by OZ
