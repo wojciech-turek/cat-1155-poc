@@ -42,6 +42,8 @@ contract Catalyst is
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
     }
 
+    /// @notice Set a new base URI, limited to DEFAULT_ADMIN_ROLE only
+    /// @param newuri The new base URI
     function setURI(string memory newuri) public onlyRole(DEFAULT_ADMIN_ROLE) {
         _setURI(newuri);
     }
