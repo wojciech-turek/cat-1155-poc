@@ -23,23 +23,33 @@ contract Catalyst is
     uint256 public constant RARE_CATALYST_ID = 2;
     uint256 public constant EPIC_CATALYST_ID = 3;
     uint256 public constant LEGENDARY_CATALYST_ID = 4;
+    uint256 public catalystTypeCount = 4;
+
+    address private _royaltyRecipient;
+    mapping(uint256 => uint256) private _catalystRoyaltyBps;
 
     event TrustedForwarderChanged(address indexed newTrustedForwarderAddress);
+    event NewCatalystTypeAdded(uint256 catalystId, uint256 royaltyBps);
 
-    function initialize(string memory _baseUri, address trustedForwarder)
-        public
-        initializer
-    {
+    function initialize(
+        string memory _baseUri,
+        address trustedForwarder,
+        address royaltyRecipient,
+        uint256[] memory catalystRoyaltyBps
+    ) public initializer {
         __ERC1155_init(_baseUri);
         __AccessControl_init();
         __ERC1155Burnable_init();
         __ERC1155Supply_init();
         __ERC2711Upgradeable_init(trustedForwarder);
-        // TODO give the deployer the minter role?
-        // TODO give anyone else the mint role?
 
         // TODO currently setting the deployer as the admin, but we can change this
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+
+        _royaltyRecipient = royaltyRecipient;
+        for (uint256 i = 0; i < catalystRoyaltyBps.length; i++) {
+            _catalystRoyaltyBps[i + 1] = catalystRoyaltyBps[i];
+        }
     }
 
     /// @notice Set a new base URI, limited to DEFAULT_ADMIN_ROLE only
@@ -59,7 +69,20 @@ contract Catalyst is
         uint256 amount,
         bytes memory data
     ) public onlyRole(MINTER_ROLE) {
+        require(id > 0 && id <= catalystTypeCount, "INVALID_CATALYST_ID");
         _mint(account, id, amount, data);
+    }
+
+    /// @notice Add a new catalyst type, limited to DEFAULT_ADMIN_ROLE only
+    /// @param catalystId The catalyst id to add
+    /// @param royaltyBps The royalty bps for the catalyst
+    function addNewCatalystType(uint256 catalystId, uint256 royaltyBps)
+        public
+        onlyRole(DEFAULT_ADMIN_ROLE)
+    {
+        catalystTypeCount++;
+        _catalystRoyaltyBps[catalystId] = royaltyBps;
+        emit NewCatalystTypeAdded(catalystId, royaltyBps);
     }
 
     /// @notice Mints a batch of tokens, limited to MINTER_ROLE only
@@ -73,6 +96,12 @@ contract Catalyst is
         uint256[] memory amounts,
         bytes memory data
     ) public onlyRole(MINTER_ROLE) {
+        for (uint256 i = 0; i < ids.length; i++) {
+            require(
+                ids[i] > 0 && ids[i] <= catalystTypeCount,
+                "INVALID_CATALYST_ID"
+            );
+        }
         _mintBatch(to, ids, amounts, data);
     }
 
@@ -106,6 +135,27 @@ contract Catalyst is
         returns (bytes calldata)
     {
         return ERC2711Upgradeable._msgData();
+    }
+
+    /// @notice Implementation of EIP-2981 royalty standard
+    /// @param _tokenId The token id to check
+    /// @param _salePrice The sale price of the token id
+    /// @return receiver The address that should receive the royalty payment
+    /// @return royaltyAmount The royalty payment amount for the token id
+    function royaltyInfo(uint256 _tokenId, uint256 _salePrice)
+        external
+        view
+        returns (address receiver, uint256 royaltyAmount)
+    {
+        uint256 royaltyBps = _catalystRoyaltyBps[_tokenId];
+        return (_royaltyRecipient, (_salePrice * royaltyBps) / 10000);
+    }
+
+    function changeRoyaltyRecipient(address newRoyaltyRecipient)
+        external
+        onlyRole(DEFAULT_ADMIN_ROLE)
+    {
+        _royaltyRecipient = newRoyaltyRecipient;
     }
 
     function _beforeTokenTransfer(
